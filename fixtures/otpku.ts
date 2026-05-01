@@ -12,13 +12,21 @@ export interface StatusResult {
   code?: string;
 }
 
+function buildUrl(params: Record<string, string>): string {
+  const url = new URL(BASE);
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, v);
+  }
+  return url.toString();
+}
+
 export async function getNumber(
   apiKey: string,
   service: string,
   country: string,
   fetchFn: FetchFn = fetch as any
 ): Promise<NumberResult> {
-  const url = `${BASE}?action=getNumber&api_key=${apiKey}&service=${service}&country=${country}`;
+  const url = buildUrl({ action: 'getNumber', api_key: apiKey, service, country });
   const res = await fetchFn(url);
   const data = await res.json();
   if (data.status !== 'OK') throw new Error(`getNumber failed: ${JSON.stringify(data)}`);
@@ -30,7 +38,7 @@ export async function getStatus(
   id: string,
   fetchFn: FetchFn = fetch as any
 ): Promise<StatusResult> {
-  const url = `${BASE}?action=getStatus&api_key=${apiKey}&id=${id}`;
+  const url = buildUrl({ action: 'getStatus', api_key: apiKey, id });
   const res = await fetchFn(url);
   const data = await res.json();
   return { status: data.status, code: data.code };
@@ -41,7 +49,7 @@ export async function cancelActivation(
   id: string,
   fetchFn: FetchFn = fetch as any
 ): Promise<void> {
-  const url = `${BASE}?action=cancelActivation&api_key=${apiKey}&id=${id}`;
+  const url = buildUrl({ action: 'cancelActivation', api_key: apiKey, id });
   const res = await fetchFn(url);
   await res.json();
 }
@@ -54,10 +62,10 @@ export async function pollOtp(
   fetchFn: FetchFn = fetch as any
 ): Promise<string> {
   for (let i = 0; i < maxAttempts; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, intervalMs));
     const result = await getStatus(apiKey, id, fetchFn);
     if (result.status === 'OK' && result.code) return result.code;
     if (result.status === 'CANCEL') throw new Error('Activation cancelled by server');
-    await new Promise(r => setTimeout(r, intervalMs));
   }
   throw new Error(`OTP not received after ${maxAttempts} attempts`);
 }
