@@ -41,7 +41,11 @@ export async function getStatus(
   const url = buildUrl({ action: 'getStatus', api_key: apiKey, id });
   const res = await fetchFn(url);
   const data = await res.json();
-  return { status: data.status, code: data.code };
+  const valid = new Set(['OK', 'WAIT', 'CANCEL']);
+  if (!valid.has(data.status)) {
+    throw new Error(`getStatus: unexpected status "${data.status}": ${JSON.stringify(data)}`);
+  }
+  return { status: data.status as 'OK' | 'WAIT' | 'CANCEL', code: data.code };
 }
 
 export async function cancelActivation(
@@ -51,7 +55,8 @@ export async function cancelActivation(
 ): Promise<void> {
   const url = buildUrl({ action: 'cancelActivation', api_key: apiKey, id });
   const res = await fetchFn(url);
-  await res.json();
+  const data = await res.json();
+  if (data.status !== 'OK') console.warn('cancelActivation non-OK response:', data);
 }
 
 export async function pollOtp(

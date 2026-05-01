@@ -3,4 +3,5 @@ node_modules/
 playwright-report/
 test-results/
 dist/
-results/report.json
+results/*
+!results/.gitkeep

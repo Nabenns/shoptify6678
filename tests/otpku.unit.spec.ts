@@ -66,3 +66,10 @@ test('pollOtp throws immediately on CANCEL', async () => {
 
   await expect(pollOtp(KEY, 'OTPTOP-001', 0, 3, mockFetch)).rejects.toThrow('cancelled by server');
 });
+
+test('getStatus throws on unexpected status', async () => {
+  const mockFetch = async (_url: string) =>
+    ({ json: async () => ({ status: 'EXPIRED', message: 'expired' }) }) as any;
+
+  await expect(getStatus(KEY, 'OTPTOP-001', mockFetch)).rejects.toThrow('unexpected status "EXPIRED"');
+});

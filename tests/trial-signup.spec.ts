@@ -9,15 +9,13 @@ const SERVICE = process.env.OTP_SERVICE_CODE!;
 const COUNTRY = process.env.OTP_COUNTRY!;
 const MAX_RETRIES = 3;
 
-test.beforeAll(() => {
-  for (const [name, value] of [
-    ['OTP_API_KEY', API_KEY],
-    ['OTP_SERVICE_CODE', SERVICE],
-    ['OTP_COUNTRY', COUNTRY],
-  ] as [string, string][]) {
-    if (!value) throw new Error(`Required env var ${name} is not set`);
-  }
-});
+for (const [name, value] of [
+  ['OTP_API_KEY', API_KEY],
+  ['OTP_SERVICE_CODE', SERVICE],
+  ['OTP_COUNTRY', COUNTRY],
+] as [string, string][]) {
+  if (!value) throw new Error(`Required env var ${name} is not set`);
+}
 
 for (const instanceNum of [1, 2, 3]) {
   test(`trial signup - instance ${instanceNum}`, async ({ page }) => {
