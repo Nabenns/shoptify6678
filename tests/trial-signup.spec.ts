@@ -9,18 +9,31 @@ const SERVICE = process.env.OTP_SERVICE_CODE!;
 const COUNTRY = process.env.OTP_COUNTRY!;
 const MAX_RETRIES = 3;
 
+test.beforeAll(() => {
+  for (const [name, value] of [
+    ['OTP_API_KEY', API_KEY],
+    ['OTP_SERVICE_CODE', SERVICE],
+    ['OTP_COUNTRY', COUNTRY],
+  ] as [string, string][]) {
+    if (!value) throw new Error(`Required env var ${name} is not set`);
+  }
+});
+
 for (const instanceNum of [1, 2, 3]) {
   test(`trial signup - instance ${instanceNum}`, async ({ page }) => {
-    const email = `${faker.string.alphanumeric(8).toLowerCase()}@forapps.site`;
-    const name = faker.person.fullName();
-    const password = `Spotify@${faker.string.alphanumeric(8)}1`;
     const signupPage = new SignupPage(page);
 
     let activationId: string | null = null;
     let phone: string | null = null;
+    let lastEmail: string | null = null;
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const email = `${faker.string.alphanumeric(8).toLowerCase()}@forapps.site`;
+      const name = faker.person.fullName();
+      const password = `Spotify@${faker.string.alphanumeric(8)}1`;
+      lastEmail = email;
+
       try {
         const numResult = await getNumber(API_KEY, SERVICE, COUNTRY);
         activationId = numResult.id;
@@ -56,7 +69,7 @@ for (const instanceNum of [1, 2, 3]) {
 
     appendResult({
       instance: instanceNum,
-      email,
+      email: lastEmail ?? 'N/A',
       phone: phone ?? 'N/A',
       status: 'failed',
       error: String(lastError),
