@@ -16,11 +16,6 @@ export function appendResult(
   result: TestResult,
   filePath: string = DEFAULT_PATH
 ): void {
-  let existing: TestResult[] = [];
-  if (fs.existsSync(filePath)) {
-    existing = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  }
-  existing.push(result);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(existing, null, 2));
+  fs.appendFileSync(filePath, JSON.stringify(result) + '\n');
 }
