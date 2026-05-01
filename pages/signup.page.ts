@@ -8,19 +8,19 @@ export class SignupPage {
   }
 
   async fillRegistrationForm(email: string, name: string, password: string): Promise<void> {
-    await this.page.fill('[data-testid="email"]', email); // SELECTOR
-    await this.page.fill('[data-testid="displayname"]', name); // SELECTOR
-    await this.page.fill('[data-testid="password"]', password); // SELECTOR
-    await this.page.click('[data-testid="submit"]'); // SELECTOR
+    await this.page.locator('[data-testid="email"]').fill(email); // SELECTOR
+    await this.page.locator('[data-testid="displayname"]').fill(name); // SELECTOR
+    await this.page.locator('[data-testid="password"]').fill(password); // SELECTOR
+    await this.page.locator('[data-testid="submit"]').click(); // SELECTOR
   }
 
   async handleLoginIfRequired(email: string, password: string): Promise<void> {
     const loginForm = this.page.locator('[data-testid="login-form"]'); // SELECTOR
     const isVisible = await loginForm.isVisible().catch(() => false);
     if (!isVisible) return;
-    await this.page.fill('[data-testid="login-username"]', email); // SELECTOR
-    await this.page.fill('[data-testid="login-password"]', password); // SELECTOR
-    await this.page.click('[data-testid="login-button"]'); // SELECTOR
+    await this.page.locator('[data-testid="login-username"]').fill(email); // SELECTOR
+    await this.page.locator('[data-testid="login-password"]').fill(password); // SELECTOR
+    await this.page.locator('[data-testid="login-button"]').click(); // SELECTOR
   }
 
   async navigateToSubscription(): Promise<void> {
@@ -28,17 +28,17 @@ export class SignupPage {
   }
 
   async selectCarrierBilling(): Promise<void> {
-    await this.page.click('[data-testid="carrier-billing"]'); // SELECTOR
+    await this.page.locator('[data-testid="carrier-billing"]').click(); // SELECTOR
   }
 
   async enterPhoneNumber(phone: string): Promise<void> {
-    await this.page.fill('[data-testid="phone-number"]', phone); // SELECTOR
-    await this.page.click('[data-testid="phone-submit"]'); // SELECTOR
+    await this.page.locator('[data-testid="phone-number"]').fill(phone); // SELECTOR
+    await this.page.locator('[data-testid="phone-submit"]').click(); // SELECTOR
   }
 
   async enterOtp(otp: string): Promise<void> {
-    await this.page.fill('[data-testid="otp-input"]', otp); // SELECTOR
-    await this.page.click('[data-testid="otp-submit"]'); // SELECTOR
+    await this.page.locator('[data-testid="otp-input"]').fill(otp); // SELECTOR
+    await this.page.locator('[data-testid="otp-submit"]').click(); // SELECTOR
   }
 
   async assertTrialActive(): Promise<void> {
