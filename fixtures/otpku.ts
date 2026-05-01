@@ -1,0 +1,63 @@
+const BASE = 'https://my.otpku.co.id/api/';
+
+type FetchFn = (url: string) => Promise<{ json: () => Promise<any> }>;
+
+export interface NumberResult {
+  id: string;
+  number: string;
+}
+
+export interface StatusResult {
+  status: 'OK' | 'WAIT' | 'CANCEL';
+  code?: string;
+}
+
+export async function getNumber(
+  apiKey: string,
+  service: string,
+  country: string,
+  fetchFn: FetchFn = fetch as any
+): Promise<NumberResult> {
+  const url = `${BASE}?action=getNumber&api_key=${apiKey}&service=${service}&country=${country}`;
+  const res = await fetchFn(url);
+  const data = await res.json();
+  if (data.status !== 'OK') throw new Error(`getNumber failed: ${JSON.stringify(data)}`);
+  return { id: data.id, number: data.number };
+}
+
+export async function getStatus(
+  apiKey: string,
+  id: string,
+  fetchFn: FetchFn = fetch as any
+): Promise<StatusResult> {
+  const url = `${BASE}?action=getStatus&api_key=${apiKey}&id=${id}`;
+  const res = await fetchFn(url);
+  const data = await res.json();
+  return { status: data.status, code: data.code };
+}
+
+export async function cancelActivation(
+  apiKey: string,
+  id: string,
+  fetchFn: FetchFn = fetch as any
+): Promise<void> {
+  const url = `${BASE}?action=cancelActivation&api_key=${apiKey}&id=${id}`;
+  const res = await fetchFn(url);
+  await res.json();
+}
+
+export async function pollOtp(
+  apiKey: string,
+  id: string,
+  intervalMs = 5_000,
+  maxAttempts = 12,
+  fetchFn: FetchFn = fetch as any
+): Promise<string> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const result = await getStatus(apiKey, id, fetchFn);
+    if (result.status === 'OK' && result.code) return result.code;
+    if (result.status === 'CANCEL') throw new Error('Activation cancelled by server');
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  throw new Error(`OTP not received after ${maxAttempts} attempts`);
+}
