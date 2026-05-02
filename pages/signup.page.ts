@@ -24,17 +24,15 @@ export class SignupPage {
       });
     });
 
-    // Step 1: Email — waitFor ensures element is in DOM, then dispatchEvent bypasses any remaining overlay
-    await this.page.getByRole('textbox', { name: 'Email address' }).waitFor();
+    const submitBtn = this.page.locator('#__next > main > main > section > div > form > button');
+
+    // Step 1: Email
     await this.page.getByRole('textbox', { name: 'Email address' }).fill(email);
-    await this.page.getByRole('button', { name: 'Next' }).waitFor();
-    await this.page.getByRole('button', { name: 'Next' }).dispatchEvent('click');
+    await submitBtn.click();
 
     // Step 2: Password
-    await this.page.locator('input[type="password"]').waitFor();
     await this.page.locator('input[type="password"]').fill(password);
-    await this.page.getByRole('button', { name: 'Next' }).waitFor();
-    await this.page.getByRole('button', { name: 'Next' }).dispatchEvent('click');
+    await submitBtn.click();
 
     // Step 3: Profile — name, birthday, gender
     await this.page.getByRole('textbox', { name: 'Name' }).fill(name);
