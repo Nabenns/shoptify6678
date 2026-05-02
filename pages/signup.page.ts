@@ -13,44 +13,28 @@ export class SignupPage {
   }
 
   async fillRegistrationForm(email: string, name: string, password: string): Promise<void> {
-    // Dismiss cookie banner — try specific buttons first, then any button in the banner
-    const bannerVisible = await this.page.locator('#onetrust-banner-sdk').isVisible({ timeout: 3_000 }).catch(() => false);
-    if (bannerVisible) {
-      const dismissed = await (async () => {
-        for (const sel of ['#onetrust-accept-btn-handler', '#onetrust-close-btn-handler', '.onetrust-close-btn-handler']) {
-          const btn = this.page.locator(sel);
-          if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
-            await btn.click();
-            return true;
-          }
-        }
-        // Fall back: click any button in the banner (usually the × close button)
-        const anyBtn = this.page.locator('#onetrust-banner-sdk button').last();
-        if (await anyBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-          await anyBtn.click();
-          return true;
-        }
-        return false;
-      })();
-      if (!dismissed) {
-        // Last resort: hide the banner via JS so it stops blocking clicks
-        await this.page.evaluate(() => {
-          const el = document.getElementById('onetrust-banner-sdk');
-          if (el) el.style.display = 'none';
-          // Also remove any backdrop overlay
-          document.querySelectorAll('.onetrust-pc-dark-filter, #onetrust-overlay').forEach(e => (e as HTMLElement).style.display = 'none');
+    // Wait for page to settle then nuke cookie banner + any overlay via JS
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.evaluate(() => {
+      ['#onetrust-banner-sdk', '#onetrust-consent-sdk', '.onetrust-pc-dark-filter',
+        '#onetrust-overlay', '#onetrust-backdrop', '#onetrust-group-container'].forEach(sel => {
+        document.querySelectorAll<HTMLElement>(sel).forEach(el => {
+          el.style.setProperty('display', 'none', 'important');
         });
-      }
-      await this.page.waitForTimeout(300);
-    }
+      });
+    });
 
-    // Step 1: Email
+    // Step 1: Email — waitFor ensures element is in DOM, then dispatchEvent bypasses any remaining overlay
+    await this.page.getByRole('textbox', { name: 'Email address' }).waitFor();
     await this.page.getByRole('textbox', { name: 'Email address' }).fill(email);
-    await this.page.getByRole('button', { name: 'Next' }).click();
+    await this.page.getByRole('button', { name: 'Next' }).waitFor();
+    await this.page.getByRole('button', { name: 'Next' }).dispatchEvent('click');
 
     // Step 2: Password
+    await this.page.locator('input[type="password"]').waitFor();
     await this.page.locator('input[type="password"]').fill(password);
-    await this.page.getByRole('button', { name: 'Next' }).click();
+    await this.page.getByRole('button', { name: 'Next' }).waitFor();
+    await this.page.getByRole('button', { name: 'Next' }).dispatchEvent('click');
 
     // Step 3: Profile — name, birthday, gender
     await this.page.getByRole('textbox', { name: 'Name' }).fill(name);

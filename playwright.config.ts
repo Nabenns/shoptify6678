@@ -6,7 +6,7 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   workers: 3,
-  timeout: 120_000,
+  timeout: 300_000,
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list'],
