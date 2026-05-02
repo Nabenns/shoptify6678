@@ -24,15 +24,17 @@ export class SignupPage {
       });
     });
 
-    const submitBtn = this.page.locator('#__next > main > main > section > div > form > button');
+    const clickFormBtn = () => this.page.evaluate(() => {
+      (document.querySelector('#__next > main > main > section > div > form > button') as HTMLButtonElement)?.click();
+    });
 
     // Step 1: Email
     await this.page.getByRole('textbox', { name: 'Email address' }).fill(email);
-    await submitBtn.click();
+    await clickFormBtn();
 
     // Step 2: Password
     await this.page.locator('input[type="password"]').fill(password);
-    await submitBtn.click();
+    await clickFormBtn();
 
     // Step 3: Profile — name, birthday, gender
     await this.page.getByRole('textbox', { name: 'Name' }).fill(name);
