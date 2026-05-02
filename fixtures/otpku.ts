@@ -1,6 +1,20 @@
+import { execFileSync } from 'child_process';
+
 const BASE = 'https://my.otpku.co.id/api/';
 
-type FetchFn = (url: string) => Promise<{ json: () => Promise<any> }>;
+type FetchFn = (url: string, init?: RequestInit) => Promise<{ json: () => Promise<any> }>;
+
+function curlFetch(url: string, init?: RequestInit): Promise<{ json: () => Promise<any> }> {
+  const args = ['-s'];
+  if (init?.method) args.push('-X', init.method);
+  for (const [k, v] of Object.entries((init?.headers ?? {}) as Record<string, string>)) {
+    args.push('-H', `${k}: ${v}`);
+  }
+  if (init?.body) args.push('--data-raw', String(init.body));
+  args.push(url);
+  const text = execFileSync('curl', args).toString();
+  return Promise.resolve({ json: () => Promise.resolve(JSON.parse(text)) });
+}
 
 export interface NumberResult {
   id: string;
@@ -12,51 +26,59 @@ export interface StatusResult {
   code?: string;
 }
 
-function buildUrl(params: Record<string, string>): string {
-  const url = new URL(BASE);
-  for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(k, v);
-  }
-  return url.toString();
+function makeBody(params: Record<string, string>): string {
+  return new URLSearchParams(params).toString();
 }
+
+const POST: RequestInit = {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+};
 
 export async function getNumber(
   apiKey: string,
   service: string,
   country: string,
-  fetchFn: FetchFn = fetch as any
+  fetchFn: FetchFn = curlFetch
 ): Promise<NumberResult> {
-  const url = buildUrl({ action: 'getNumber', api_key: apiKey, service, country });
-  const res = await fetchFn(url);
+  const body = makeBody({ action: 'getNumber', api_key: apiKey, service, country });
+  const res = await fetchFn(BASE, { ...POST, body });
   const data = await res.json();
-  if (data.status !== 'OK') throw new Error(`getNumber failed: ${JSON.stringify(data)}`);
-  return { id: data.id, number: data.number };
+  if (!data.success) throw new Error(`getNumber failed: ${JSON.stringify(data)}`);
+  return { id: String(data.activation_id), number: data.phone_number };
 }
 
 export async function getStatus(
   apiKey: string,
   id: string,
-  fetchFn: FetchFn = fetch as any
+  fetchFn: FetchFn = curlFetch
 ): Promise<StatusResult> {
-  const url = buildUrl({ action: 'getStatus', api_key: apiKey, id });
-  const res = await fetchFn(url);
+  const body = makeBody({ action: 'getStatus', api_key: apiKey, id });
+  const res = await fetchFn(BASE, { ...POST, body });
   const data = await res.json();
-  const valid = new Set(['OK', 'WAIT', 'CANCEL']);
-  if (!valid.has(data.status)) {
-    throw new Error(`getStatus: unexpected status "${data.status}": ${JSON.stringify(data)}`);
-  }
-  return { status: data.status as 'OK' | 'WAIT' | 'CANCEL', code: data.code };
+  if (!data.success) throw new Error(`getStatus failed: ${JSON.stringify(data)}`);
+
+  const statusMap: Record<string, 'OK' | 'WAIT' | 'CANCEL'> = {
+    ok: 'OK',
+    waiting: 'WAIT',
+    cancel: 'CANCEL',
+    cancelled: 'CANCEL',
+  };
+  const mapped = statusMap[String(data.status).toLowerCase()];
+  if (!mapped) throw new Error(`getStatus: unexpected status "${data.status}": ${JSON.stringify(data)}`);
+
+  return { status: mapped, code: data.code ?? data.sms_code };
 }
 
 export async function cancelActivation(
   apiKey: string,
   id: string,
-  fetchFn: FetchFn = fetch as any
+  fetchFn: FetchFn = curlFetch
 ): Promise<void> {
-  const url = buildUrl({ action: 'cancelActivation', api_key: apiKey, id });
-  const res = await fetchFn(url);
+  const body = makeBody({ action: 'cancelActivation', api_key: apiKey, id });
+  const res = await fetchFn(BASE, { ...POST, body });
   const data = await res.json();
-  if (data.status !== 'OK') console.warn('cancelActivation non-OK response:', data);
+  if (!data.success) console.warn('cancelActivation non-OK response:', data);
 }
 
 export async function pollOtp(
@@ -64,7 +86,7 @@ export async function pollOtp(
   id: string,
   intervalMs = 5_000,
   maxAttempts = 12,
-  fetchFn: FetchFn = fetch as any
+  fetchFn: FetchFn = curlFetch
 ): Promise<string> {
   for (let i = 0; i < maxAttempts; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, intervalMs));
