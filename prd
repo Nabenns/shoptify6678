@@ -1,0 +1,189 @@
+# 📄 PRD – Automation Testing Flow (Trial Signup – Clean & Legal)
+
+## 🎯 Objective
+
+Menguji end-to-end flow:
+**akses trial → registrasi → verifikasi → login → aktivasi subscription (sandbox)**
+menggunakan automation berbasis browser.
+
+---
+
+## 🧪 Flow Utama (Rewritten – Legal)
+
+### 1. Buka browser dengan clean session (incognito/context baru)
+
+* Tujuan: tidak ada cache/cookie
+* Implementasi: Playwright `newContext()`
+
+---
+
+### 2. Set environment testing (bukan VPN bypass)
+
+* Gunakan:
+
+  * `staging` / `sandbox` environment
+* Config via `.env`:
+
+```
+BASE_URL=https://staging.app.com
+```
+
+---
+
+### 3. Akses halaman trial / pricing resmi
+
+* Endpoint valid (misal `/trial`)
+* Validasi:
+
+  * page load sukses
+  * CTA “Start Free Trial” muncul
+
+---
+
+### 4. Klik tombol “Start Free Trial / Claim Trial”
+
+* Assert:
+
+  * tombol visible
+  * redirect ke halaman signup
+
+---
+
+### 5. Isi form registrasi (test data valid & unik)
+
+* Gunakan data generator (faker):
+
+  * email: random
+  * nama: valid format
+  * password: sesuai policy
+* Submit form
+
+---
+
+### 6. Login / auto-login setelah registrasi
+
+* Jika auto-login:
+
+  * validasi redirect ke dashboard
+* Jika manual:
+
+  * isi email & password
+  * klik login
+* Assert login sukses
+
+---
+
+### 7. Handle proteksi sistem secara legal (captcha/anti-bot)
+
+* ❌ Tidak bypass captcha
+* ✅ Gunakan:
+
+  * test mode captcha (jika ada)
+  * atau disable di environment staging
+* Tujuan: tetap valid tanpa melanggar sistem
+
+---
+
+### 8. Verifikasi OTP (email/SMS testing)
+
+* Gunakan:
+
+  * email testing service (Mailtrap/Mailhog)
+  * atau mock OTP API
+* Ambil OTP secara programmatic
+* Input ke form verifikasi
+* Assert verifikasi sukses
+
+---
+
+### 9. Pilih metode pembayaran (sandbox mode)
+
+* Gunakan payment gateway test:
+
+  * contoh kartu test (sandbox)
+* Tidak menggunakan data real
+* Tidak ada manipulasi billing
+
+---
+
+### 10. Konfirmasi aktivasi trial / subscription
+
+* Validasi:
+
+  * status: “Trial Active” / “Subscribed”
+  * UI dashboard berubah sesuai
+
+---
+
+### 11. Simpan hasil test (logging, bukan akun eksploit)
+
+* Simpan ke file:
+
+  * JSON / log / report
+* Contoh:
+
+```
+{
+  "email": "test123@mail.com",
+  "status": "trial_active"
+}
+```
+
+---
+
+## ⚠️ Constraints (Wajib Dipatuhi)
+
+### ❌ Tidak boleh:
+
+* bypass captcha
+* gunakan OTP tidak sah
+* manipulasi pembayaran
+* abuse trial berkali-kali di sistem real
+
+### ✅ Harus:
+
+* pakai sandbox / staging
+* pakai test data
+* comply dengan Terms of Service
+
+---
+
+## 🧰 Tools & Stack
+
+* Playwright / Selenium
+* Faker.js (data generator)
+* Mailtrap / Mailhog (email testing)
+* Payment sandbox (misal Stripe)
+
+---
+
+## 📊 Expected Result
+
+* Semua step berjalan tanpa error
+* User berhasil:
+
+  * register
+  * verify
+  * login
+  * activate trial
+
+---
+
+## 🔮 Future Enhancement
+
+* Parallel testing (multi-user simulation)
+* CI/CD integration
+* Screenshot & video recording
+* Retry & anti-flaky system
+* Test reporting dashboard
+
+---
+
+## 💡 Catatan Penting
+
+Flow ini:
+
+* secara struktur mirip flow awal
+* sudah dibersihkan dari abuse
+* bisa dipakai di project real
+* aman secara legal & engineering

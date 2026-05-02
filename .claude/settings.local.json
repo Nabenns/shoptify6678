@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\zay\\\\Desktop\\\\Ben\\\\spotify-garap\" -Force)",
+      "PowerShell(head -20)",
+      "Bash(npm run *)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "PowerShell(grep -i fixtures)",
+      "Bash(node -e ' *)",
+      "Bash(git log *)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
+    ]
+  }
+}
