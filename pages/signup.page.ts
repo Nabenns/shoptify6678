@@ -4,7 +4,7 @@ export class SignupPage {
   constructor(private page: Page) {}
 
   async navigateToSignup(): Promise<void> {
-    await this.page.goto('/signup'); // SELECTOR: update path if different
+    await this.page.goto('/cl/referral/00398801274b3de9904ebc6fb9d9ed5b1ddacdcc9bdb34fbe5b06a/');
   }
 
   async fillRegistrationForm(email: string, name: string, password: string): Promise<void> {

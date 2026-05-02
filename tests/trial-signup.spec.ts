@@ -8,6 +8,7 @@ const API_KEY = process.env.OTP_API_KEY!;
 const SERVICE = process.env.OTP_SERVICE_CODE!;
 const COUNTRY = process.env.OTP_COUNTRY!;
 const MAX_RETRIES = 3;
+const BASE_URL = process.env.BASE_URL ?? '';
 
 for (const [name, value] of [
   ['OTP_API_KEY', API_KEY],
@@ -16,6 +17,9 @@ for (const [name, value] of [
 ] as [string, string][]) {
   if (!value) throw new Error(`Required env var ${name} is not set`);
 }
+
+// ⚠️  PASTIKAN VPN CHILE AKTIF sebelum run — target: www.spotify.com/cl/
+console.log(`\n⚠️  VPN CHECK: Pastikan VPN Chile sudah aktif! Target: ${BASE_URL}/cl/\n`);
 
 for (const instanceNum of [1, 2, 3]) {
   test(`trial signup - instance ${instanceNum}`, async ({ page }) => {
