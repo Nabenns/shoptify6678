@@ -70,6 +70,26 @@ export async function getStatus(
   return { status: mapped, code: data.code ?? data.sms_code };
 }
 
+export async function getActiveNumbers(
+  apiKey: string,
+  fetchFn: FetchFn = curlFetch
+): Promise<NumberResult[]> {
+  const body = makeBody({ action: 'getActivations', api_key: apiKey });
+  const res = await fetchFn(BASE, { ...POST, body });
+  const data = await res.json();
+  if (!data.success) return [];
+
+  // Parse active numbers from response - only return pending ones
+  if (!data.activations || !Array.isArray(data.activations)) return [];
+
+  return data.activations
+    .filter((act: any) => act.status === 'pending') // Only pending activations
+    .map((act: any) => ({
+      id: String(act.activation_id),
+      number: String(act.phone_number)
+    }));
+}
+
 export async function cancelActivation(
   apiKey: string,
   id: string,

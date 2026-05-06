@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import { faker } from '@faker-js/faker';
-import { getNumber, pollOtp, cancelActivation } from '../fixtures/otpku';
+import { getNumber, pollOtp, cancelActivation, getActiveNumbers } from '../fixtures/otpku';
 import { SignupPage } from '../pages/signup.page';
 import { appendResult } from '../utils/reporter';
 
@@ -39,7 +39,20 @@ for (const instanceNum of [1, 2, 3]) {
       lastEmail = email;
 
       try {
-        const numResult = await getNumber(API_KEY, SERVICE, COUNTRY);
+        // Check for existing active numbers first to avoid wasting credits
+        console.log(`🔍 [Instance ${instanceNum}] Checking for existing active numbers...`);
+        const activeNumbers = await getActiveNumbers(API_KEY);
+
+        let numResult;
+        if (activeNumbers.length > 0) {
+          console.log(`♻️ [Instance ${instanceNum}] Found ${activeNumbers.length} active number(s), reusing first one`);
+          numResult = activeNumbers[0];
+        } else {
+          console.log(`💰 [Instance ${instanceNum}] No active numbers, purchasing new one...`);
+          numResult = await getNumber(API_KEY, SERVICE, COUNTRY);
+          console.log(`✅ [Instance ${instanceNum}] New number acquired: ${numResult.number}`);
+        }
+
         activationId = numResult.id;
         phone = numResult.number;
 
