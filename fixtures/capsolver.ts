@@ -31,21 +31,51 @@ export async function solveRecaptchaV2(
     await new Promise(r => setTimeout(r, 3_000));
     console.log(`🔄 [CAPSOLVER] Poll attempt ${i + 1}/60...`);
 
-    const pollRes = await fetch(`${BASE}/getTaskResult`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientKey: apiKey, taskId }),
-    });
-    const pollData = (await pollRes.json()) as any;
-    const { status, solution, errorCode: ec } = pollData;
+    try {
+      const pollRes = await fetch(`${BASE}/getTaskResult`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientKey: apiKey, taskId }),
+      });
 
-    console.log(`📊 [CAPSOLVER] Status: ${status}`);
+      if (!pollRes.ok) {
+        console.log(`⚠️ [CAPSOLVER] HTTP error: ${pollRes.status} ${pollRes.statusText}`);
+        continue;
+      }
 
-    if (status === 'ready') {
-      console.log('✅ [CAPSOLVER] Solution received!');
-      return solution.gRecaptchaResponse;
+      const pollData = (await pollRes.json()) as any;
+      console.log(`📋 [CAPSOLVER] Poll response:`, JSON.stringify(pollData));
+
+      const { status, solution, errorCode: ec, errorId: eid } = pollData;
+
+      if (eid && eid !== 0) {
+        throw new Error(`CapSolver API error: errorId=${eid}, errorCode=${ec}`);
+      }
+
+      console.log(`📊 [CAPSOLVER] Status: ${status || 'unknown'}`);
+
+      if (status === 'ready') {
+        if (!solution || !solution.gRecaptchaResponse) {
+          throw new Error('CapSolver returned ready but no solution found');
+        }
+        console.log('✅ [CAPSOLVER] Solution received!');
+        console.log('🔑 [CAPSOLVER] Token preview:', solution.gRecaptchaResponse.substring(0, 50) + '...');
+        return solution.gRecaptchaResponse;
+      }
+
+      if (status === 'failed') {
+        throw new Error(`CapSolver task failed: ${ec || 'unknown error'}`);
+      }
+
+      // Status is 'processing' or 'idle', continue polling
+    } catch (error: any) {
+      console.log(`❌ [CAPSOLVER] Error during poll ${i + 1}:`, error.message);
+      // If it's a network error, continue trying. If it's a task error, throw it.
+      if (error.message.includes('task failed') || error.message.includes('API error')) {
+        throw error;
+      }
+      // Otherwise continue polling
     }
-    if (status === 'failed') throw new Error(`CapSolver task failed: ${ec}`);
   }
-  throw new Error('CapSolver timeout after 3 minutes');
+  throw new Error('CapSolver timeout after 3 minutes (60 attempts)');
 }
