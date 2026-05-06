@@ -68,10 +68,16 @@ export class SignupPage {
     console.log('👤 [STEP 3] Filling name:', name);
     await this.page.getByRole('textbox', { name: 'Name' }).waitFor({ timeout: 10000 });
     await this.page.getByRole('textbox', { name: 'Name' }).fill(name);
-    console.log('📅 [STEP 3] Filling birth date: 2/1/1999');
-    await this.page.getByTestId('birthDateDay').fill('2');
-    await this.page.getByTestId('birthDateMonth').selectOption('1');
-    await this.page.getByTestId('birthDateYear').fill('1999');
+
+    // Generate random birth date (1995-2000)
+    const birthYear = Math.floor(Math.random() * 6) + 1995; // Random 1995-2000
+    const birthMonth = Math.floor(Math.random() * 12) + 1; // Random 1-12
+    const birthDay = Math.floor(Math.random() * 28) + 1; // Random 1-28 (safe for all months)
+
+    console.log(`📅 [STEP 3] Filling birth date: ${birthDay}/${birthMonth}/${birthYear}`);
+    await this.page.getByTestId('birthDateDay').fill(String(birthDay));
+    await this.page.getByTestId('birthDateMonth').selectOption(String(birthMonth));
+    await this.page.getByTestId('birthDateYear').fill(String(birthYear));
     console.log('⚧️ [STEP 3] Selecting gender: Man');
     await this.page.locator('div').filter({ hasText: /^Man$/ }).click();
     await this.page.waitForTimeout(1000); // Wait after filling all fields before clicking
@@ -96,44 +102,62 @@ export class SignupPage {
     }
 
     // Step 4: Consent / terms step - might auto-skip to reCAPTCHA
-    console.log('☑️ [STEP 4] Checking for consent page...');
+    console.log('☑️ [STEP 4] Checking current page...');
+    console.log('🔍 [STEP 4] Current URL:', this.page.url());
 
     // Sometimes Spotify skips consent page and goes straight to reCAPTCHA
     // Check if we're already at reCAPTCHA
-    const alreadyAtCaptcha = this.page.url().includes('challenge.spotify.com');
-    if (alreadyAtCaptcha) {
-      console.log('✅ [STEP 4] Already at reCAPTCHA page, skipping consent step');
+    if (this.page.url().includes('challenge.spotify.com')) {
+      console.log('✅ [STEP 4] Already at reCAPTCHA page, skipping consent step entirely');
     } else {
+      console.log('⏳ [STEP 4] Not at reCAPTCHA yet, checking for consent page...');
+
       // Try to handle consent checkboxes if present
       try {
-        console.log('⏳ [STEP 4] Waiting for consent checkboxes...');
-        const hasCheckboxes = await this.page.locator('.Indicator-sc-1airx73-0').first().isVisible({ timeout: 3000 }).catch(() => false);
+        // Check if checkboxes exist with shorter timeout
+        const hasCheckboxes = await this.page.locator('.Indicator-sc-1airx73-0').first().isVisible({ timeout: 2000 }).catch(() => false);
 
-        if (hasCheckboxes) {
-          console.log('✅ [STEP 4] Checkboxes found, clicking them...');
-          // Click checkboxes - might trigger navigation to reCAPTCHA
+        if (hasCheckboxes && !this.page.url().includes('challenge.spotify.com')) {
+          console.log('✅ [STEP 4] Checkboxes found on consent page');
+
+          // Click first checkbox
           await this.page.locator('.Indicator-sc-1airx73-0').first().click().catch(() => {
-            console.log('⚠️ [STEP 4] First checkbox click failed (page might have navigated)');
+            console.log('⚠️ [STEP 4] First checkbox click failed');
           });
 
-          // Only try second checkbox if page didn't navigate
-          if (!this.page.url().includes('challenge.spotify.com')) {
-            await this.page.locator('div:nth-child(2) > .Checkbox-sc-svpvf6-0 > .Label-sc-cpoq-0 > .Indicator-sc-1airx73-0').click({ timeout: 2000 }).catch(() => {
-              console.log('⚠️ [STEP 4] Second checkbox not found or page navigated');
-            });
-          }
+          // Wait a bit and check if we navigated
+          await this.page.waitForTimeout(500);
 
-          // Try to submit if still on consent page
-          if (!this.page.url().includes('challenge.spotify.com')) {
-            console.log('🖱️ [STEP 4] Clicking submit...');
-            await this.page.getByTestId('submit').click();
-            await this.page.waitForTimeout(1000);
+          if (this.page.url().includes('challenge.spotify.com')) {
+            console.log('✅ [STEP 4] Page navigated to reCAPTCHA after first checkbox, stopping here');
+          } else {
+            // Try second checkbox
+            console.log('🖱️ [STEP 4] Clicking second checkbox...');
+            await this.page.locator('div:nth-child(2) > .Checkbox-sc-svpvf6-0 > .Label-sc-cpoq-0 > .Indicator-sc-1airx73-0').click({ timeout: 2000 }).catch(() => {
+              console.log('⚠️ [STEP 4] Second checkbox not found');
+            });
+
+            await this.page.waitForTimeout(500);
+
+            // Submit if still on consent page
+            if (!this.page.url().includes('challenge.spotify.com')) {
+              console.log('🖱️ [STEP 4] Clicking submit on consent page...');
+              await this.page.getByTestId('submit').click();
+              await this.page.waitForTimeout(1000);
+            } else {
+              console.log('✅ [STEP 4] Already navigated to reCAPTCHA, skipping submit');
+            }
           }
+        } else if (this.page.url().includes('challenge.spotify.com')) {
+          console.log('✅ [STEP 4] Page already navigated to reCAPTCHA during checkbox check');
         } else {
-          console.log('⚠️ [STEP 4] No checkboxes found, might have auto-progressed');
+          console.log('⚠️ [STEP 4] No checkboxes found, checking if already progressed...');
+          // Might have auto-progressed, wait a bit
+          await this.page.waitForTimeout(2000);
         }
       } catch (e: any) {
-        console.log('⚠️ [STEP 4] Consent step error (might be normal):', e.message);
+        console.log('⚠️ [STEP 4] Consent step error:', e.message);
+        console.log('🔍 [STEP 4] Current URL after error:', this.page.url());
       }
     }
 
@@ -152,13 +176,67 @@ export class SignupPage {
       return;
     }
 
-    const sitekey = await this.page.$eval(
-      '.g-recaptcha, [data-sitekey]',
-      (el: Element) => el.getAttribute('data-sitekey') ?? ''
-    );
-    if (!sitekey) throw new Error('reCAPTCHA sitekey not found on challenge page');
+    console.log('⏳ [CAPTCHA] Waiting for reCAPTCHA to fully render...');
+
+    // Wait for reCAPTCHA iframe to load
+    try {
+      await this.page.waitForSelector('iframe[src*="recaptcha"]', { timeout: 10_000 });
+      console.log('✅ [CAPTCHA] reCAPTCHA iframe found');
+    } catch {
+      console.log('⚠️ [CAPTCHA] reCAPTCHA iframe not found, continuing anyway...');
+    }
+
+    // Wait for reCAPTCHA checkbox to be visible
+    try {
+      await this.page.waitForSelector('.g-recaptcha, [data-sitekey]', { timeout: 10_000 });
+      console.log('✅ [CAPTCHA] reCAPTCHA widget visible');
+    } catch {
+      console.log('⚠️ [CAPTCHA] reCAPTCHA widget not visible');
+    }
+
+    // Additional wait to ensure reCAPTCHA is fully loaded
+    console.log('⏳ [CAPTCHA] Waiting 3s for reCAPTCHA to fully initialize...');
+    await this.page.waitForTimeout(3000);
+
+    console.log('🔍 [CAPTCHA] Extracting sitekey...');
+
+    let sitekey: string = '';
+    try {
+      sitekey = await this.page.$eval(
+        '.g-recaptcha, [data-sitekey]',
+        (el: Element) => el.getAttribute('data-sitekey') ?? ''
+      );
+    } catch (e: any) {
+      console.log('❌ [CAPTCHA] Error extracting sitekey with first selector:', e.message);
+
+      // Try alternative selector
+      try {
+        sitekey = await this.page.evaluate(() => {
+          const el = document.querySelector('[data-sitekey]');
+          return el?.getAttribute('data-sitekey') || '';
+        });
+      } catch (e2: any) {
+        console.log('❌ [CAPTCHA] Error with alternative selector:', e2.message);
+      }
+    }
+
+    if (!sitekey) {
+      console.log('❌ [CAPTCHA] Sitekey not found, trying to find it in page source...');
+      const pageContent = await this.page.content();
+      const match = pageContent.match(/data-sitekey="([^"]+)"/);
+      if (match && match[1]) {
+        sitekey = match[1];
+        console.log('✅ [CAPTCHA] Found sitekey in page source');
+      } else {
+        throw new Error('reCAPTCHA sitekey not found on challenge page');
+      }
+    }
+
+    console.log('✅ [CAPTCHA] Sitekey extracted:', sitekey);
+    console.log('🚀 [CAPTCHA] Calling CapSolver API...');
 
     const token = await solveRecaptchaV2(this.capsolverKey, this.page.url(), sitekey);
+    console.log('✅ [CAPTCHA] CapSolver returned token, length:', token.length);
 
     await this.page.evaluate((t: string) => {
       document
