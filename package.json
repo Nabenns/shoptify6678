@@ -1,11 +1,14 @@
 {
   "name": "spotify-trial-automation",
   "version": "1.0.0",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",
-    "test:e2e": "playwright test --project=e2e"
+    "test:e2e": "playwright test --project=e2e",
+    "cleanup": "tsx scripts/cleanup-otpku.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^9.0.0",
@@ -14,6 +17,7 @@
   "devDependencies": {
     "@playwright/test": "^1.45.0",
     "@types/node": "^20.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.0"
   }
 }
