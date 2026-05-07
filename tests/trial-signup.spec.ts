@@ -8,6 +8,7 @@ const API_KEY = process.env.OTP_API_KEY!;
 const SERVICE = process.env.OTP_SERVICE_CODE!;
 const COUNTRY = process.env.OTP_COUNTRY!;
 const CAPSOLVER_KEY = process.env.CAPSOLVER_API_KEY!;
+const TWOCAPTCHA_KEY = process.env.TWOCAPTCHA_API_KEY; // Optional fallback
 const MAX_RETRIES = 3;
 const BASE_URL = process.env.BASE_URL ?? '';
 
@@ -20,12 +21,18 @@ for (const [name, value] of [
   if (!value) throw new Error(`Required env var ${name} is not set`);
 }
 
+if (TWOCAPTCHA_KEY) {
+  console.log('✅ 2Captcha API key detected - will use as fallback if CapSolver fails');
+} else {
+  console.log('⚠️  No 2Captcha API key - will use manual intervention if CapSolver fails');
+}
+
 // ⚠️  PASTIKAN VPN CHILE AKTIF sebelum run — target: www.spotify.com/cl/premium/
 console.log(`\n⚠️  VPN CHECK: Pastikan VPN Chile sudah aktif! Target: ${BASE_URL}/cl/premium/\n`);
 
 for (const instanceNum of [1, 2, 3]) {
   test(`trial signup - instance ${instanceNum}`, async ({ page }) => {
-    const signupPage = new SignupPage(page, CAPSOLVER_KEY);
+    const signupPage = new SignupPage(page, CAPSOLVER_KEY, TWOCAPTCHA_KEY);
 
     let activationId: string | null = null;
     let phone: string | null = null;
