@@ -261,60 +261,14 @@ export class SignupPage {
     }
 
     console.log('✅ [CAPTCHA] Sitekey extracted:', sitekey);
-    console.log('🚀 [CAPTCHA] Calling CapSolver API...');
 
-    // Try automated solving with multiple services
+    // Use 2Captcha directly (skip CapSolver)
     let autoSolveSuccess = false;
     let token: string | null = null;
 
-    // Try CapSolver first
-    console.log('🤖 [CAPTCHA] Attempting automated solve with CapSolver...');
-    try {
-      token = await solveRecaptchaV2(this.capsolverKey, this.page.url(), sitekey);
-      console.log('✅ [CAPTCHA] CapSolver returned token, length:', token.length);
-
-      // Inject token into page
-      console.log('💉 [CAPTCHA] Injecting token into page...');
-      await this.page.evaluate((t: string) => {
-        document
-          .querySelectorAll<HTMLTextAreaElement>('#g-recaptcha-response, [name="g-recaptcha-response"]')
-          .forEach(el => {
-            el.value = t;
-            el.innerHTML = t;
-            Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(el, t);
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          });
-      }, token);
-
-      console.log('✅ [CAPTCHA] Token injected');
-      await this.page.waitForTimeout(1000);
-
-      // Try clicking Continue button
-      console.log('🖱️ [CAPTCHA] Attempting to click Continue button...');
-      const continueButton = this.page.getByRole('button', { name: 'Continue' });
-      await continueButton.click({ timeout: 3000 });
-
-      // Wait a bit to see if it worked
-      await this.page.waitForTimeout(3000);
-
-      // Check if we navigated away (success) or still on challenge page (failed)
-      if (this.page.url().includes('challenge.spotify.com')) {
-        console.log('⚠️ [CAPTCHA] Automated solve failed - Spotify rejected the token');
-        autoSolveSuccess = false;
-      } else {
-        console.log('✅ [CAPTCHA] Automated solve succeeded!');
-        autoSolveSuccess = true;
-      }
-    } catch (e: any) {
-      console.log('⚠️ [CAPTCHA] CapSolver failed:', e.message);
-      autoSolveSuccess = false;
-    }
-
-    // If CapSolver failed, try 2Captcha if key is provided
-    if (!autoSolveSuccess && this.twoCaptchaKey && this.twoCaptchaKey !== 'your_2captcha_api_key_here') {
-      console.log('');
-      console.log('🔄 [CAPTCHA] CapSolver failed, trying 2Captcha as fallback...');
+    if (this.twoCaptchaKey && this.twoCaptchaKey !== 'your_2captcha_api_key_here') {
+      console.log('🤖 [CAPTCHA] Using 2Captcha to solve reCAPTCHA...');
+      console.log('🚀 [CAPTCHA] Calling 2Captcha API...');
 
       try {
         token = await solveRecaptchaV2With2Captcha(this.twoCaptchaKey, this.page.url(), sitekey);
@@ -347,7 +301,7 @@ export class SignupPage {
 
         // Check if we navigated away (success) or still on challenge page (failed)
         if (this.page.url().includes('challenge.spotify.com')) {
-          console.log('⚠️ [2CAPTCHA] 2Captcha also failed - Spotify rejected the token');
+          console.log('⚠️ [2CAPTCHA] Spotify rejected the token - trying manual intervention');
           autoSolveSuccess = false;
         } else {
           console.log('✅ [2CAPTCHA] 2Captcha solve succeeded!');
@@ -357,9 +311,12 @@ export class SignupPage {
         console.log('⚠️ [2CAPTCHA] 2Captcha error:', e.message);
         autoSolveSuccess = false;
       }
+    } else {
+      console.log('⚠️ [CAPTCHA] No 2Captcha API key found, will use manual intervention');
+      autoSolveSuccess = false;
     }
 
-    // If all automated solves failed, fall back to manual intervention
+    // If automated solve failed, fall back to manual intervention
     if (!autoSolveSuccess) {
       console.log('');
       console.log('┌─────────────────────────────────────────────────────────────┐');
