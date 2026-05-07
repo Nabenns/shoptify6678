@@ -105,55 +105,78 @@ export class SignupPage {
     console.log('☑️ [STEP 4] Checking current page...');
     console.log('🔍 [STEP 4] Current URL:', this.page.url());
 
-    // Sometimes Spotify skips consent page and goes straight to reCAPTCHA
-    // Check if we're already at reCAPTCHA
+    // Wait a bit to let any auto-navigation happen
+    await this.page.waitForTimeout(2000);
+    console.log('🔍 [STEP 4] URL after wait:', this.page.url());
+
+    // Check if we're already at reCAPTCHA (might auto-navigate)
     if (this.page.url().includes('challenge.spotify.com')) {
       console.log('✅ [STEP 4] Already at reCAPTCHA page, skipping consent step entirely');
     } else {
-      console.log('⏳ [STEP 4] Not at reCAPTCHA yet, checking for consent page...');
+      console.log('⏳ [STEP 4] Not at reCAPTCHA yet, will try to proceed...');
 
       // Try to handle consent checkboxes if present
       try {
-        // Check if checkboxes exist with shorter timeout
-        const hasCheckboxes = await this.page.locator('.Indicator-sc-1airx73-0').first().isVisible({ timeout: 2000 }).catch(() => false);
+        // Check if there's a submit button
+        const submitButton = this.page.getByTestId('submit');
+        const hasSubmitButton = await submitButton.isVisible({ timeout: 2000 }).catch(() => false);
 
-        if (hasCheckboxes && !this.page.url().includes('challenge.spotify.com')) {
-          console.log('✅ [STEP 4] Checkboxes found on consent page');
+        if (hasSubmitButton) {
+          console.log('✅ [STEP 4] Submit button found on consent page');
 
-          // Click first checkbox
-          await this.page.locator('.Indicator-sc-1airx73-0').first().click().catch(() => {
-            console.log('⚠️ [STEP 4] First checkbox click failed');
+          // Check if there are checkboxes
+          const checkboxes = this.page.locator('input[type="checkbox"]');
+          const checkboxCount = await checkboxes.count();
+          console.log(`📋 [STEP 4] Found ${checkboxCount} checkboxes`);
+
+          // If there are checkboxes, click them all
+          if (checkboxCount > 0) {
+            console.log('🖱️ [STEP 4] Clicking all checkboxes...');
+            for (let i = 0; i < checkboxCount; i++) {
+              try {
+                const checkbox = checkboxes.nth(i);
+                const isChecked = await checkbox.isChecked().catch(() => false);
+                if (!isChecked) {
+                  await checkbox.click({ force: true });
+                  console.log(`✅ [STEP 4] Clicked checkbox ${i + 1}/${checkboxCount}`);
+                  await this.page.waitForTimeout(200);
+                }
+              } catch (e: any) {
+                console.log(`⚠️ [STEP 4] Failed to click checkbox ${i + 1}:`, e.message);
+              }
+            }
+          } else {
+            console.log('ℹ️ [STEP 4] No checkboxes found, will try submit anyway');
+          }
+
+          // Now click submit button with navigation wait
+          console.log('🖱️ [STEP 4] Clicking submit button...');
+
+          // Use Promise.race to handle both click and navigation
+          await Promise.race([
+            submitButton.click(),
+            this.page.waitForURL('**/challenge**', { timeout: 8000 }).then(() => {
+              console.log('✅ [STEP 4] Navigation to reCAPTCHA detected during click');
+            })
+          ]).catch(() => {
+            console.log('⚠️ [STEP 4] Click or navigation timeout');
           });
 
-          // Wait a bit and check if we navigated
-          await this.page.waitForTimeout(500);
-
-          if (this.page.url().includes('challenge.spotify.com')) {
-            console.log('✅ [STEP 4] Page navigated to reCAPTCHA after first checkbox, stopping here');
-          } else {
-            // Try second checkbox
-            console.log('🖱️ [STEP 4] Clicking second checkbox...');
-            await this.page.locator('div:nth-child(2) > .Checkbox-sc-svpvf6-0 > .Label-sc-cpoq-0 > .Indicator-sc-1airx73-0').click({ timeout: 2000 }).catch(() => {
-              console.log('⚠️ [STEP 4] Second checkbox not found');
-            });
-
-            await this.page.waitForTimeout(500);
-
-            // Submit if still on consent page
-            if (!this.page.url().includes('challenge.spotify.com')) {
-              console.log('🖱️ [STEP 4] Clicking submit on consent page...');
-              await this.page.getByTestId('submit').click();
-              await this.page.waitForTimeout(1000);
-            } else {
-              console.log('✅ [STEP 4] Already navigated to reCAPTCHA, skipping submit');
-            }
-          }
-        } else if (this.page.url().includes('challenge.spotify.com')) {
-          console.log('✅ [STEP 4] Page already navigated to reCAPTCHA during checkbox check');
-        } else {
-          console.log('⚠️ [STEP 4] No checkboxes found, checking if already progressed...');
-          // Might have auto-progressed, wait a bit
+          // Wait a bit more and check URL
           await this.page.waitForTimeout(2000);
+          console.log('🔍 [STEP 4] URL after submit:', this.page.url());
+
+          // If still not at reCAPTCHA, wait longer
+          if (!this.page.url().includes('challenge.spotify.com')) {
+            console.log('⏳ [STEP 4] Still not at reCAPTCHA, waiting 5 more seconds...');
+            await this.page.waitForTimeout(5000);
+            console.log('🔍 [STEP 4] Final URL:', this.page.url());
+          } else {
+            console.log('✅ [STEP 4] Successfully at reCAPTCHA page');
+          }
+        } else {
+          console.log('⚠️ [STEP 4] No submit button found, might have auto-progressed');
+          await this.page.waitForTimeout(3000);
         }
       } catch (e: any) {
         console.log('⚠️ [STEP 4] Consent step error:', e.message);
@@ -238,19 +261,87 @@ export class SignupPage {
     const token = await solveRecaptchaV2(this.capsolverKey, this.page.url(), sitekey);
     console.log('✅ [CAPTCHA] CapSolver returned token, length:', token.length);
 
+    // Inject token into page using multiple methods
+    console.log('💉 [CAPTCHA] Injecting token into page...');
+
     await this.page.evaluate((t: string) => {
+      // Method 1: Set textarea value directly
       document
         .querySelectorAll<HTMLTextAreaElement>('#g-recaptcha-response, [name="g-recaptcha-response"]')
         .forEach(el => {
+          el.value = t;
+          el.innerHTML = t;
           Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(el, t);
           el.dispatchEvent(new Event('input', { bubbles: true }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
         });
+
+      // Method 2: Try to call reCAPTCHA callback if exists
+      try {
+        // @ts-ignore - grecaptcha global
+        if (typeof window.grecaptcha !== 'undefined' && window.grecaptcha.getResponse) {
+          console.log('[CAPTCHA] grecaptcha found, trying callback...');
+        }
+      } catch (e) {
+        console.log('[CAPTCHA] No grecaptcha callback available');
+      }
+
+      // Method 3: Set global reCAPTCHA response
+      try {
+        // @ts-ignore
+        if (typeof window.recaptchaCallback === 'function') {
+          // @ts-ignore
+          window.recaptchaCallback(t);
+          console.log('[CAPTCHA] Called recaptchaCallback');
+        }
+      } catch (e) {
+        console.log('[CAPTCHA] No recaptchaCallback found');
+      }
     }, token);
 
-    await this.page.getByRole('button', { name: 'Continue' }).click();
+    console.log('✅ [CAPTCHA] Token injected');
+
+    // Wait a bit for any callbacks to process
+    await this.page.waitForTimeout(2000);
+
+    // Try to click Continue button
+    console.log('🖱️ [CAPTCHA] Clicking Continue button...');
+    try {
+      const continueButton = this.page.getByRole('button', { name: 'Continue' });
+      await continueButton.click({ timeout: 5000 });
+      console.log('✅ [CAPTCHA] Continue button clicked');
+    } catch (e: any) {
+      console.log('⚠️ [CAPTCHA] Continue button not found or not clickable:', e.message);
+
+      // Try alternative: look for any button with text containing "Continue"
+      console.log('🔄 [CAPTCHA] Trying alternative button selector...');
+      try {
+        await this.page.locator('button:has-text("Continue")').click({ timeout: 5000 });
+        console.log('✅ [CAPTCHA] Alternative Continue button clicked');
+      } catch (e2: any) {
+        console.log('❌ [CAPTCHA] Could not find Continue button');
+
+        // Last resort: Try clicking the reCAPTCHA checkbox to trigger validation
+        console.log('🔄 [CAPTCHA] Trying to click reCAPTCHA checkbox...');
+        try {
+          await this.page.frameLocator('iframe[src*="recaptcha"]').first()
+            .locator('.recaptcha-checkbox-border').click({ timeout: 5000 });
+          console.log('✅ [CAPTCHA] Clicked reCAPTCHA checkbox');
+          await this.page.waitForTimeout(2000);
+        } catch (e3: any) {
+          console.log('❌ [CAPTCHA] Could not click reCAPTCHA checkbox:', e3.message);
+        }
+      }
+    }
+
     // After captcha solve, Spotify redirects to payments checkout
-    await this.page.waitForURL(/payments\.spotify\.com/, { timeout: 30_000 });
+    console.log('⏳ [CAPTCHA] Waiting for redirect to payments page...');
+    try {
+      await this.page.waitForURL(/payments\.spotify\.com/, { timeout: 30_000 });
+      console.log('✅ [CAPTCHA] Successfully redirected to payments page');
+    } catch {
+      console.log('⚠️ [CAPTCHA] Did not redirect to payments page, current URL:', this.page.url());
+    }
   }
 
   async handleLoginIfRequired(email: string, password: string): Promise<void> {
